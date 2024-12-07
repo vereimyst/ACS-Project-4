@@ -1,0 +1,11 @@
+TestType,Users/Threads,Time(s),Extra
+EncodingPerformance,1,0.0924061,
+EncodingPerformance,2,0.0682423,
+EncodingPerformance,4,0.0658326,
+EncodingPerformance,8,0.0675022,
+VanillaColumnScan,1,0.000874562,
+QuerySingleItem,1,0.00042498,Non-SIMD
+QuerySingleItem,1,2.9663e-05,SIMD
+VanillaPrefixScan,1,0.000907987,
+QueryPrefixScan,1,0.0114649,Non-SIMD
+QueryPrefixScan,1,0.091948,SIMD
