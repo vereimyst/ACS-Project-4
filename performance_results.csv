@@ -1,11 +1,30 @@
 TestType,Users/Threads,Time(s),Extra
-EncodingPerformance,1,0.0924061,
-EncodingPerformance,2,0.0682423,
-EncodingPerformance,4,0.0658326,
-EncodingPerformance,8,0.0675022,
-VanillaColumnScan,1,0.000874562,
-QuerySingleItem,1,0.00042498,Non-SIMD
-QuerySingleItem,1,2.9663e-05,SIMD
-VanillaPrefixScan,1,0.000907987,
-QueryPrefixScan,1,0.0114649,Non-SIMD
-QueryPrefixScan,1,0.091948,SIMD
+EncodingPerformance,1,0.0865699,
+EncodingPerformance,2,0.0757811,
+EncodingPerformance,3,0.0751719,
+EncodingPerformance,4,0.0646958,
+EncodingPerformance,5,0.0627854,
+EncodingPerformance,6,0.0579631,
+EncodingPerformance,7,0.0610089,
+EncodingPerformance,8,0.0880161,
+EncodingPerformance,9,0.076877,
+EncodingPerformance,10,0.0592203,
+EncodingPerformance,11,0.0618282,
+EncodingPerformance,12,0.0712482,
+EncodingPerformance,13,0.0868327,
+EncodingPerformance,14,0.117867,
+EncodingPerformance,15,0.0833378,
+EncodingPerformance,16,0.0990092,
+VanillaColumnScan,1,0.00140701,
+QuerySingleItem,1,0.000371997,Non-SIMD
+QuerySingleItem,1,3.5717e-05,SIMD
+VanillaPrefixScan,1,0.00130266,
+QueryPrefixScan,1,0.0117517,Non-SIMD
+QueryPrefixScan,1,0.132858,SIMD
+ValueSizeTest,4,0.0896238,4 bytes
+ValueSizeTest,4,0.0867592,8 bytes
+ValueSizeTest,4,0.110785,16 bytes
+ValueSizeTest,4,0.0957509,32 bytes
+ValueSizeTest,4,0.102626,64 bytes
+ValueSizeTest,4,0.124456,128 bytes
+ValueSizeTest,4,0.169594,256 bytes

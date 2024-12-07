@@ -36,8 +36,8 @@ void logToCSV(const std::string& filename, const std::string& testType, int thre
 
 // Test encoding performance across different thread counts
 void testEncodingPerformance(DictionaryEncoder& encoder, const std::vector<std::string>& dataset, const std::string& csvFile) {
-    for (int threads : {1, 2, 4, 8}) {
-    // for (int threads : {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}) {
+    // for (int threads : {1, 2, 4, 8}) {
+    for (int threads : {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}) {
         encoder.clear();
         auto start = std::chrono::high_resolution_clock::now();
         encoder.encode(dataset, threads);
@@ -133,7 +133,7 @@ void testReadWriteRatio(DictionaryEncoder& encoder, const std::vector<std::strin
 
 // Test different value sizes
 void testValueSizes(DictionaryEncoder& encoder, size_t numEntries, const std::string& csvFile) {
-    for (size_t valueSize : {8, 64, 256}) {
+    for (size_t valueSize : {4, 8, 16, 32, 64, 128, 256}) {
         auto dataset = generateTestData(numEntries, valueSize);
 
         encoder.clear();
@@ -193,6 +193,7 @@ void testQueryComparison(DictionaryEncoder& encoder, const std::vector<std::stri
     end = std::chrono::high_resolution_clock::now();
     double nonSIMDPrefixTime = std::chrono::duration<double>(end - start).count();
     std::cout << "Non-SIMD Querying prefix \"" << prefix << "\" took " << nonSIMDPrefixTime << " seconds.\n";
+    // std::cout << "\tVerify Example: " << tmp_vec[0] << std::endl;
     assert(expected_len == tmp_vec.size());
     logToCSV(csvFile, "QueryPrefixScan", 1, nonSIMDPrefixTime, "Non-SIMD");
 
@@ -229,11 +230,11 @@ int main() {
     // // 3. Test read vs. write ratios
     // testReadWriteRatio(encoder, testData, csvFile);
 
-    // // 4. Test value sizes
-    // testValueSizes(encoder, numEntries, csvFile);
-
-    // 5. Test querying
+    // 4. Test querying
     testQueryComparison(encoder, testData, csvFile);
+
+    // 5. Test value sizes
+    testValueSizes(encoder, numEntries, csvFile);
 
     return 0;
 }

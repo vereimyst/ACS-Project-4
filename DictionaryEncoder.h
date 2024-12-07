@@ -1,11 +1,21 @@
 #ifndef DICTIONARY_ENCODER_H
 #define DICTIONARY_ENCODER_H
 
-#include <unordered_map>
-#include <vector>
-#include <string>
+#include <mutex>
+#include <thread>
 #include <shared_mutex>
 #include <atomic>
+#include <chrono>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <cstring>
+#include <unordered_set>
+#include <unordered_map>
+#include <immintrin.h> // SIMD intrinsics
+#include <algorithm> // For std::find
+#include <optional>
 
 class DictionaryEncoder {
 private:
@@ -32,6 +42,9 @@ public:
     std::vector<int> queryPrefixSIMD(const std::string& prefix) const; // Prefix scan (SIMD)
 
     // Helper
+    void Put(const std::string& key, int value);
+    std::optional<int> Get(const std::string& key) const;
+    bool Delete(const std::string& key);
     void clear(); // Resets the dictionary and encoded column
 };
 

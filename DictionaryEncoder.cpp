@@ -1,12 +1,4 @@
 #include "DictionaryEncoder.h"
-#include <fstream>
-#include <iostream>
-#include <thread>
-#include <chrono>
-#include <cstring>
-#include <unordered_set>
-#include <immintrin.h> // SIMD intrinsics
-#include <algorithm> // For std::find
 
 // Encode data into dictionary format using multi-threading
 void DictionaryEncoder::encode(const std::vector<std::string>& column, int numThreads) {
@@ -206,8 +198,21 @@ std::vector<int> DictionaryEncoder::queryPrefixNonSIMD(const std::string& prefix
         }
         return matchingIndices;
     }
+    
+    // // direct (inefficient) implementation
+    // for (const auto& [dictWord, dictIndex] : dictionary) {
+    //     // Check if dictionary word starts with the prefix
+    //     if (dictWord.size() >= prefix.size() &&
+    //         dictWord.compare(0, prefix.size(), prefix) == 0) {
+    //         for (size_t i = 0; i < encodedColumn.size(); ++i) {
+    //             if (dictIndex == encodedColumn[i]) {
+    //                 matchingIndices.push_back(static_cast<int>(i));
+    //             }
+    //         }
+    //     }
+    // }
 
-    // Step 1: Precompute matching dictionary indices
+    // optimized implementation
     std::unordered_set<int> matchingCodes;
     for (const auto& [dictWord, dictIndex] : dictionary) {
         // Check if dictionary word starts with the prefix
@@ -222,7 +227,6 @@ std::vector<int> DictionaryEncoder::queryPrefixNonSIMD(const std::string& prefix
         return matchingIndices;
     }
 
-    // Step 2: Single pass over encoded column to collect matching indices
     matchingIndices.reserve(encodedColumn.size()); // Reserve space for potential matches
     for (size_t i = 0; i < encodedColumn.size(); ++i) {
         if (matchingCodes.count(encodedColumn[i])) {
@@ -240,24 +244,43 @@ std::vector<int> DictionaryEncoder::queryPrefixSIMD(const std::string& prefix) c
     // Step 1: Collect matching dictionary values into an unordered_set
     std::unordered_set<int> matchingCodes;
     alignas(32) char paddedPrefix[32] = {0};
-    std::memcpy(paddedPrefix, prefix.data(), prefix.size());
+    std::memcpy(paddedPrefix, prefix.data(), std::min(prefix.size(), size_t(32)));
 
     __m256i prefixVec = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(paddedPrefix));
+    int prefixMask = (1 << prefix.size()) - 1; // Precompute mask for prefix length
 
     for (const auto& [key, value] : dictionary) {
-        if (key.size() >= prefix.size()) {
-            alignas(32) char paddedKey[32] = {0};
-            std::memcpy(paddedKey, key.data(), std::min(key.size(), sizeof(paddedKey)));
+        // Skip keys shorter than the prefix
+        if (key.size() < prefix.size()) {
+            continue;
+        }
 
-            __m256i keyVec = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(paddedKey));
-            __m256i cmpResult = _mm256_cmpeq_epi8(prefixVec, keyVec);
+        // Load the first 32 bytes of the key directly
+        const char* keyData = key.data();
+        __m256i keyVec = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(keyData));
+        __m256i cmpResult = _mm256_cmpeq_epi8(prefixVec, keyVec);
 
-            int mask = _mm256_movemask_epi8(cmpResult);
-            if ((mask & ((1 << prefix.size()) - 1)) == ((1 << prefix.size()) - 1)) {
+        int mask = _mm256_movemask_epi8(cmpResult);
+
+        // If prefix matches, check additional bytes for long prefixes
+        if ((mask & prefixMask) == prefixMask) {
+            bool match = true;
+
+            // Fallback for prefixes longer than 32 bytes
+            for (size_t i = 32; i < prefix.size(); ++i) {
+                if (key[i] != prefix[i]) {
+                    match = false;
+                    break;
+                }
+            }
+
+            if (match) {
                 matchingCodes.insert(value);
             }
         }
     }
+
+    // return matchingCodes;
 
     // Early truncation if no matching codes found
     if (matchingCodes.empty()) {
@@ -266,10 +289,12 @@ std::vector<int> DictionaryEncoder::queryPrefixSIMD(const std::string& prefix) c
 
     // Step 2: SIMD-optimized scan of the encodedColumn
     size_t n = encodedColumn.size();
-    alignas(32) __m256i targetVecs[matchingCodes.size()];
+    size_t numCodes = matchingCodes.size();
+    alignas(32) __m256i targetVecs[numCodes]; // Ensure proper alignment
+
     size_t idx = 0;
     for (int code : matchingCodes) {
-        targetVecs[idx++] = _mm256_set1_epi32(code);
+        targetVecs[idx++] = _mm256_set1_epi32(code); // Broadcast code into SIMD register
     }
 
     for (size_t i = 0; i + 7 < n; i += 8) {
@@ -300,6 +325,28 @@ std::vector<int> DictionaryEncoder::queryPrefixSIMD(const std::string& prefix) c
     }
 
     return results;
+}
+
+// Insert or update a key-value pair
+void DictionaryEncoder::Put(const std::string& key, int value) {
+    std::unique_lock lock(dictMutex); // Exclusive access for modification
+    dictionary[key] = value;         // Insert or update the key-value pair
+}
+
+// Retrieve the value associated with a given key
+std::optional<int> DictionaryEncoder::Get(const std::string& key) const {
+    std::shared_lock lock(dictMutex); // Shared access for read-only
+    auto it = dictionary.find(key);
+    if (it != dictionary.end()) {
+        return it->second; // Return the associated value
+    }
+    return std::nullopt;   // Key not found
+}
+
+// Remove a key-value pair from the store
+bool DictionaryEncoder::Delete(const std::string& key) {
+    std::unique_lock lock(dictMutex); // Exclusive access for modification
+    return dictionary.erase(key) > 0; // Erase the key and return true if it existed
 }
 
 // Clear dictionary and encoded column
